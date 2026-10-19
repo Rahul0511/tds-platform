@@ -1,9 +1,9 @@
 # TDS Platform (v0.1) – test prototype
 
-> **Test prototype, not a production application.** Every page carries a
-> "TEST PROTOTYPE – Not a production application" watermark
-> (`client/src/app/shared/ui/watermark.component.ts`; it is not printed, so
-> the TDS PDFs stay clean), and the database holds made-up test products only.
+> **Test prototype, not a production application.** A "Test prototype" label
+> sits in the top bar and on the sign-in page
+> (`client/src/app/shared/ui/prototype-badge.component.ts`; not printed), and
+> the database holds made-up test products only.
 
 A web app that replaces `TDS_Creator_EN_v6.xlsm` and `TDS-SF-OPV-database.xlsx`
 for Sheetfed water-based OPVs (varnishes).

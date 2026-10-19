@@ -10,6 +10,7 @@ import { Role } from '../core/models';
 import { ThemeMode, ThemeService } from '../core/theme.service';
 import { AvatarComponent } from '../shared/ui/avatar.component';
 import { IconComponent, IconName } from '../shared/ui/icon.component';
+import { PrototypeBadgeComponent } from '../shared/ui/prototype-badge.component';
 import { SiteFooterComponent } from '../shared/ui/site-footer.component';
 
 interface NavItem {
@@ -30,7 +31,7 @@ const COLLAPSED_KEY = 'tds.sidebarCollapsed';
 /** Signed-in layout: sidebar, top bar with breadcrumbs and user menu. */
 @Component({
   selector: 'app-shell',
-  imports: [RouterOutlet, RouterLink, RouterLinkActive, IconComponent, AvatarComponent, SiteFooterComponent, TranslatePipe],
+  imports: [RouterOutlet, RouterLink, RouterLinkActive, IconComponent, AvatarComponent, SiteFooterComponent, TranslatePipe, PrototypeBadgeComponent],
   templateUrl: './shell.component.html',
   host: {
     '(document:click)': 'onDocumentClick($event)',

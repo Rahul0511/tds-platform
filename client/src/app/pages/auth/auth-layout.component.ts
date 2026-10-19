@@ -3,12 +3,13 @@ import { AuthService } from '../../core/auth/auth.service';
 import { I18nService, UI_LANGUAGES } from '../../core/i18n/i18n.service';
 import { TranslatePipe } from '../../core/i18n/translate.pipe';
 import { IconComponent } from '../../shared/ui/icon.component';
+import { PrototypeBadgeComponent } from '../../shared/ui/prototype-badge.component';
 import { SiteFooterComponent } from '../../shared/ui/site-footer.component';
 
 /** Split screen used by the sign-in pages: brand panel left, form right, language switch on top. */
 @Component({
   selector: 'app-auth-layout',
-  imports: [IconComponent, SiteFooterComponent, TranslatePipe],
+  imports: [IconComponent, SiteFooterComponent, TranslatePipe, PrototypeBadgeComponent],
   template: `
     <div class="grid min-h-screen lg:grid-cols-[minmax(0,1.05fr)_minmax(0,1fr)]">
       <!-- Brand panel -->
@@ -61,6 +62,7 @@ import { SiteFooterComponent } from '../../shared/ui/site-footer.component';
 
       <!-- Form -->
       <section class="relative flex flex-col justify-center px-6 py-12 sm:px-12">
+        <app-prototype-badge class="absolute left-6 top-5 sm:left-12 sm:top-6" />
         <div class="absolute right-4 top-4 flex rounded-lg border border-line bg-surface-2 p-0.5 text-xs sm:right-6 sm:top-6" role="radiogroup" [attr.aria-label]="'Language' | t">
           <app-icon name="globe" [size]="14" class="mx-1.5 self-center text-subtle" />
           @for (l of languages; track l.code) {

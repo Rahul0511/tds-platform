@@ -9,15 +9,13 @@ import { ToastService } from './core/toast.service';
 import { BackToTopComponent } from './shared/ui/back-to-top.component';
 import { DialogHostComponent } from './shared/ui/dialog-host.component';
 import { IconComponent } from './shared/ui/icon.component';
-import { WatermarkComponent } from './shared/ui/watermark.component';
 
-/** Root: the routed page plus app-wide overlays (prototype watermark, toasts, dialogs). */
+/** Root: the routed page plus app-wide overlays (toasts, dialogs). */
 @Component({
   selector: 'app-root',
-  imports: [RouterOutlet, DialogHostComponent, IconComponent, BackToTopComponent, TranslatePipe, WatermarkComponent],
+  imports: [RouterOutlet, DialogHostComponent, IconComponent, BackToTopComponent, TranslatePipe],
   template: `
     <router-outlet />
-    <app-watermark />
     <app-dialog-host />
     <app-back-to-top />
 
