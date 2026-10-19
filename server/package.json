@@ -1,0 +1,23 @@
+{
+  "name": "tds-server",
+  "version": "0.1.0",
+  "private": true,
+  "description": "REST API + SQLite store for the TDS platform",
+  "type": "module",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "node --watch src/index.js",
+    "import": "node src/import-excel.js",
+    "reset-test-data": "node src/test-data.js"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.134.0",
+    "better-sqlite3": "^11.10.0",
+    "exceljs": "^4.4.0",
+    "express": "^4.22.3",
+    "jszip": "^3.10.2",
+    "puppeteer-core": "^25.14.0",
+    "zod": "^4.6.7"
+  }
+}

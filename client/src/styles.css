@@ -1,0 +1,142 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ---- Design tokens (RGB channels, used through tailwind.config.js) ---- */
+@layer base {
+  :root {
+    --canvas: 250 250 250;
+    --surface: 255 255 255;
+    --surface-2: 241 245 249;
+    --line: 226 232 240;
+    --line-strong: 203 213 225;
+    --ink: 15 23 42;
+    --ink-2: 51 65 85;
+    --muted: 100 116 139;
+    --subtle: 148 163 184;
+    color-scheme: light;
+  }
+
+  .dark {
+    --canvas: 9 12 18;
+    --surface: 17 22 31;
+    --surface-2: 26 33 45;
+    --line: 36 45 59;
+    --line-strong: 51 63 81;
+    --ink: 241 245 249;
+    --ink-2: 203 213 225;
+    --muted: 148 163 184;
+    --subtle: 100 116 139;
+    color-scheme: dark;
+  }
+
+  body {
+    @apply bg-canvas text-ink antialiased;
+  }
+
+  ::selection {
+    @apply bg-brand-500/25;
+  }
+}
+
+/* ---- Components ---- */
+@layer components {
+  .btn {
+    @apply inline-flex h-9 items-center justify-center gap-2 whitespace-nowrap rounded-lg px-3.5 text-sm font-medium transition
+      focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/60 focus-visible:ring-offset-2 focus-visible:ring-offset-canvas
+      disabled:pointer-events-none disabled:opacity-50;
+  }
+  .btn-sm { @apply h-8 px-2.5 text-xs; }
+  .btn-primary { @apply btn bg-brand-600 text-white shadow-sm hover:bg-brand-700 active:bg-brand-800; }
+  .btn-secondary { @apply btn border border-line bg-surface text-ink-2 shadow-sm hover:bg-surface-2; }
+  .btn-ghost { @apply btn text-muted hover:bg-surface-2 hover:text-ink; }
+  .btn-danger { @apply btn bg-red-600 text-white shadow-sm hover:bg-red-700; }
+  .btn-icon { @apply btn h-9 w-9 px-0 text-muted hover:bg-surface-2 hover:text-ink; }
+
+  .input {
+    @apply block h-9 w-full rounded-lg border border-line-strong bg-surface px-3 text-sm text-ink shadow-sm transition
+      placeholder:text-subtle focus:border-brand-500 focus:outline-none focus:ring-4 focus:ring-brand-500/15
+      disabled:cursor-not-allowed disabled:bg-surface-2;
+  }
+  textarea.input { @apply h-auto py-2 leading-relaxed; }
+  .input-error { @apply border-red-500 focus:border-red-500 focus:ring-red-500/15; }
+  .label { @apply mb-1.5 block text-xs font-medium text-ink-2; }
+  .field-error { @apply mt-1.5 text-xs text-red-600 dark:text-red-400; }
+  .hint { @apply mt-1.5 text-xs text-muted; }
+
+  .card { @apply rounded-xl border border-line bg-surface shadow-card; }
+  .card-header { @apply flex items-center justify-between gap-3 border-b border-line px-5 py-3.5; }
+  .card-title { @apply text-sm font-semibold text-ink; }
+
+  .page { @apply mx-auto w-full max-w-[1400px] px-4 py-6 sm:px-6 lg:px-8; }
+  .page-title { @apply text-2xl font-semibold tracking-tight text-ink; }
+  .page-subtitle { @apply mt-1 text-sm text-muted; }
+
+  .badge { @apply inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-xs font-medium ring-1 ring-inset; }
+  .badge-neutral { @apply badge bg-surface-2 text-ink-2 ring-line; }
+  .badge-brand { @apply badge bg-brand-500/10 text-brand-700 ring-brand-500/20 dark:text-brand-300; }
+  .badge-green { @apply badge bg-emerald-500/10 text-emerald-700 ring-emerald-500/20 dark:text-emerald-300; }
+  .badge-blue { @apply badge bg-sky-500/10 text-sky-700 ring-sky-500/20 dark:text-sky-300; }
+  .badge-amber { @apply badge bg-amber-500/10 text-amber-700 ring-amber-500/25 dark:text-amber-300; }
+  .badge-red { @apply badge bg-red-500/10 text-red-700 ring-red-500/20 dark:text-red-300; }
+  .badge-violet { @apply badge bg-violet-500/10 text-violet-700 ring-violet-500/20 dark:text-violet-300; }
+
+  .table { @apply min-w-full text-sm; }
+  .table thead th { @apply whitespace-nowrap border-b border-line bg-surface-2/60 px-4 py-2.5 text-left text-xs font-medium text-muted; }
+  .table tbody td { @apply border-b border-line px-4 py-3 align-middle; }
+  .table tbody tr:last-child td { @apply border-b-0; }
+  .table tbody tr { @apply transition-colors hover:bg-surface-2/50; }
+
+  .checkbox { @apply h-4 w-4 rounded border-line-strong bg-surface text-brand-600 focus:ring-2 focus:ring-brand-500/40 focus:ring-offset-0; }
+  .kbd { @apply rounded border border-line bg-surface-2 px-1.5 py-0.5 font-mono text-[11px] text-muted; }
+}
+
+/* ---- TDS document ---- */
+
+/* Keep the grey section bars in the PDF even when "Background graphics" is off. */
+.tds-page,
+.tds-page * {
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+
+/* The TDS is paper: always black on white, also in dark mode. */
+.tds-page { color-scheme: light; }
+
+/* Documents waiting for the print dialog: laid out (so they can measure
+   themselves) but off-screen. */
+.print-root {
+  position: fixed;
+  left: -10000px;
+  top: 0;
+}
+
+/* Printing. The margins leave a 186 x 277 mm printable area, the same width
+   as the TDS content on screen (210 mm - 2 x 12 mm padding), so line breaks
+   match the preview. TdsDocumentComponent measures against 277 mm. */
+@page {
+  size: A4;
+  margin: 10mm 12mm;
+}
+
+@media print {
+  body { background: #fff !important; }
+  .no-print { display: none !important; }
+
+  /* Each TDS of a batch, and each sheet of a TDS, starts on a new page. */
+  .print-root { position: static !important; }
+  .print-root > app-tds-document + app-tds-document { break-before: page; }
+  .tds-page + .tds-page { break-before: page; }
+
+  /* --tds-fit < 1 when a TDS is slightly too long for one page. The width is
+     widened by the same factor, so after zooming it fills the page again. */
+  .tds-page {
+    box-shadow: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    /* Just under the 277 mm printable height, so the footer sits at the bottom without spilling onto a new page. */
+    min-height: calc(275mm / var(--tds-fit, 1)) !important;
+    width: calc(186mm / var(--tds-fit, 1)) !important;
+    zoom: var(--tds-fit, 1);
+  }
+}

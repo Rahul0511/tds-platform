@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en" translate="no">
+<head>
+  <meta charset="utf-8">
+  <title>TDS Platform · Siegwerk</title>
+  <base href="/">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <!-- The app translates itself (EN / DE / FR); browser page translation would garble it. -->
+  <meta name="google" content="notranslate">
+  <link rel="icon" type="image/x-icon" href="favicon.ico">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <script>
+    // Apply the saved theme and language before Angular starts, so there is no flash.
+    try {
+      var t = localStorage.getItem('tds.theme') || 'system';
+      if (t === 'dark' || (t === 'system' && matchMedia('(prefers-color-scheme: dark)').matches)) document.documentElement.classList.add('dark');
+      var l = localStorage.getItem('tds.uiLang');
+      if (l === 'de' || l === 'fr') document.documentElement.lang = l;
+    } catch (e) {}
+  </script>
+</head>
+<body>
+  <app-root></app-root>
+</body>
+</html>

@@ -1,0 +1,193 @@
+<div class="flex min-h-screen">
+  <!-- Mobile drawer backdrop -->
+  @if (drawerOpen()) {
+    <div class="no-print fixed inset-0 z-30 animate-fade-in bg-slate-950/40 lg:hidden" (click)="drawerOpen.set(false)"></div>
+  }
+
+  <!-- Sidebar -->
+  <aside
+    class="no-print fixed inset-y-0 left-0 z-40 flex flex-col border-r border-line bg-surface transition-[width,transform] duration-200 lg:sticky lg:top-0 lg:h-screen lg:translate-x-0"
+    [class]="(collapsed() ? 'lg:w-[72px] ' : 'lg:w-64 ') + (drawerOpen() ? 'w-64 translate-x-0' : 'w-64 -translate-x-full')"
+    [attr.aria-label]="'Main navigation' | t"
+  >
+    <!-- Brand -->
+    <!-- Same height and bottom border as the top bar, so the two line up. -->
+    <a
+      routerLink="/"
+      class="flex h-16 shrink-0 items-center border-b border-line px-5 transition-colors hover:bg-surface-2/60"
+      [class]="collapsed() ? 'lg:justify-center lg:px-0' : ''"
+      [attr.aria-label]="'TDS Platform home' | t"
+    >
+      @if (collapsed()) {
+        <img src="brand/siegwerk-mark.png" alt="Siegwerk" class="hidden h-8 w-auto lg:block" />
+      }
+      <span class="flex items-center gap-3" [class]="collapsed() ? 'lg:hidden' : ''">
+        <img src="brand/siegwerk-logo.png" alt="Siegwerk" class="h-7 w-auto dark:hidden" />
+        <img src="brand/siegwerk-logo-light.png" alt="Siegwerk" class="hidden h-7 w-auto dark:block" />
+        <span class="h-7 w-px bg-line-strong" aria-hidden="true"></span>
+        <span class="leading-tight">
+          <span class="block text-sm font-semibold text-ink">TDS</span>
+          <span class="block text-xs text-muted">{{ 'Platform' | t }}</span>
+        </span>
+      </span>
+    </a>
+
+    <!-- Navigation -->
+    <nav class="flex-1 space-y-6 overflow-y-auto px-3 py-3">
+      @for (section of nav(); track section.title) {
+        <div>
+          <div class="mb-1.5 px-3 text-[11px] font-semibold uppercase tracking-wider text-subtle" [class]="collapsed() ? 'lg:hidden' : ''">
+            {{ section.title | t }}
+          </div>
+          <ul class="space-y-0.5">
+            @for (item of section.items; track item.path) {
+              <li>
+                <a
+                  [routerLink]="item.path"
+                  routerLinkActive="!bg-brand-500/10 !text-brand-700 dark:!text-brand-300 [&_app-icon]:!text-brand-600 dark:[&_app-icon]:!text-brand-400"
+                  [routerLinkActiveOptions]="{ exact: !!item.exact }"
+                  class="group flex h-9 items-center gap-3 rounded-lg px-3 text-sm font-medium text-ink-2 transition hover:bg-surface-2 hover:text-ink"
+                  [class]="collapsed() ? 'lg:justify-center lg:px-0' : ''"
+                  [attr.title]="collapsed() ? (item.label | t) : null"
+                >
+                  <app-icon [name]="item.icon" class="text-subtle transition group-hover:text-ink-2" />
+                  <span class="truncate" [class]="collapsed() ? 'lg:hidden' : ''">{{ item.label | t }}</span>
+                </a>
+              </li>
+            }
+          </ul>
+        </div>
+      }
+    </nav>
+
+    <!-- Collapse toggle (desktop) -->
+    <div class="hidden border-t border-line p-3 lg:block">
+      <button
+        type="button"
+        class="btn-ghost w-full justify-start"
+        [class.justify-center]="collapsed()"
+        (click)="collapsed.set(!collapsed())"
+        [attr.aria-label]="(collapsed() ? 'Expand sidebar' : 'Collapse sidebar') | t"
+      >
+        <app-icon name="chevrons-left" class="transition-transform" [class.rotate-180]="collapsed()" />
+        @if (!collapsed()) {
+          <span>{{ 'Collapse' | t }}</span>
+        }
+      </button>
+    </div>
+  </aside>
+
+  <!-- Main column -->
+  <div class="flex min-w-0 flex-1 flex-col">
+    <!-- Top bar -->
+    <header class="no-print sticky top-0 z-20 flex h-16 items-center gap-3 border-b border-line bg-surface/80 px-4 backdrop-blur-md sm:px-6 lg:px-8">
+      <button type="button" class="btn-icon lg:hidden" [attr.aria-label]="'Open navigation' | t" (click)="drawerOpen.set(true)">
+        <app-icon name="menu" />
+      </button>
+
+      <nav [attr.aria-label]="'Breadcrumb' | t" class="min-w-0 flex-1">
+        <ol class="flex items-center gap-1.5 text-sm">
+          @for (c of crumbs(); track $index; let last = $last) {
+            <li class="truncate" [class]="last ? 'font-medium text-ink' : 'text-muted'">{{ c | t }}</li>
+            @if (!last) {
+              <li class="text-subtle" aria-hidden="true"><app-icon name="chevron-right" [size]="14" /></li>
+            }
+          }
+        </ol>
+      </nav>
+
+      <!-- User menu -->
+      @if (auth.user(); as u) {
+        <div class="relative" data-user-menu>
+          <button
+            type="button"
+            class="flex items-center gap-2.5 rounded-full py-1 pl-1 pr-2 transition hover:bg-surface-2"
+            [attr.aria-expanded]="menuOpen()"
+            aria-haspopup="menu"
+            (click)="menuOpen.set(!menuOpen())"
+          >
+            <app-avatar [name]="u.display_name" [size]="32" />
+            <span class="hidden text-left sm:block">
+              <span class="block text-sm font-medium leading-tight text-ink">{{ u.display_name }}</span>
+              <span class="block text-xs leading-tight text-muted">{{ roleInfo[u.role].label | t }}</span>
+            </span>
+            <app-icon name="chevron-down" [size]="16" class="text-subtle" />
+          </button>
+
+          @if (menuOpen()) {
+            <div role="menu" class="absolute right-0 top-full mt-2 w-72 animate-pop-in overflow-hidden rounded-xl border border-line bg-surface shadow-pop">
+              <div class="flex items-center gap-3 border-b border-line p-4">
+                <app-avatar [name]="u.display_name" [size]="40" />
+                <div class="min-w-0">
+                  <div class="truncate text-sm font-semibold text-ink">{{ u.display_name }}</div>
+                  <div class="truncate text-xs text-muted">{{ u.email || '@' + u.username }}</div>
+                  <span class="mt-1" [class]="roleInfo[u.role].badge">{{ roleInfo[u.role].label | t }}</span>
+                </div>
+              </div>
+
+              <div class="p-2">
+                <a routerLink="/account" role="menuitem" class="flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-ink-2 hover:bg-surface-2" (click)="menuOpen.set(false)">
+                  <app-icon name="key" class="text-subtle" /> {{ 'Account & password' | t }}
+                </a>
+                @if (auth.isAdmin()) {
+                  <a routerLink="/admin/users" role="menuitem" class="flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-ink-2 hover:bg-surface-2" (click)="menuOpen.set(false)">
+                    <app-icon name="shield" class="text-subtle" /> {{ 'Users & roles' | t }}
+                  </a>
+                }
+              </div>
+
+              <div class="border-t border-line p-3">
+                <div class="mb-2 px-1 text-xs font-medium text-muted">{{ 'Theme' | t }}</div>
+                <div class="grid grid-cols-3 gap-1 rounded-lg bg-surface-2 p-1" role="radiogroup" [attr.aria-label]="'Theme' | t">
+                  @for (t of themes; track t.mode) {
+                    <button
+                      type="button"
+                      role="radio"
+                      [attr.aria-checked]="theme.mode() === t.mode"
+                      class="flex items-center justify-center gap-1.5 rounded-md py-1.5 text-xs font-medium transition"
+                      [class]="theme.mode() === t.mode ? 'bg-surface text-ink shadow-sm' : 'text-muted hover:text-ink'"
+                      (click)="theme.mode.set(t.mode)"
+                    >
+                      <app-icon [name]="t.icon" [size]="14" /> {{ t.label | t }}
+                    </button>
+                  }
+                </div>
+              </div>
+
+              <div class="border-t border-line p-3">
+                <div class="mb-2 px-1 text-xs font-medium text-muted">{{ 'Language' | t }}</div>
+                <div class="grid grid-cols-3 gap-1 rounded-lg bg-surface-2 p-1" role="radiogroup" [attr.aria-label]="'Language' | t">
+                  @for (l of uiLanguages; track l.code) {
+                    <button
+                      type="button"
+                      role="radio"
+                      [attr.aria-checked]="i18n.lang() === l.code"
+                      [attr.lang]="l.code"
+                      class="rounded-md py-1.5 text-xs font-medium transition"
+                      [class]="i18n.lang() === l.code ? 'bg-surface text-ink shadow-sm' : 'text-muted hover:text-ink'"
+                      (click)="auth.setLanguage(l.code)"
+                    >
+                      {{ l.name }}
+                    </button>
+                  }
+                </div>
+              </div>
+
+              <div class="border-t border-line p-2">
+                <button type="button" role="menuitem" class="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm text-red-600 hover:bg-red-500/10 dark:text-red-400" (click)="auth.logout()">
+                  <app-icon name="logout" /> {{ 'Sign out' | t }}
+                </button>
+              </div>
+            </div>
+          }
+        </div>
+      }
+    </header>
+
+    <main class="min-w-0 flex-1">
+      <router-outlet />
+    </main>
+
+    <app-site-footer />
+  </div>
+</div>

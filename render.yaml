@@ -1,0 +1,22 @@
+# Render Blueprint: Dashboard › New › Blueprint, pick this repository.
+# The SQLite database lives on a persistent disk; disks need a paid instance type.
+services:
+  - type: web
+    name: tds-platform
+    runtime: docker
+    plan: starter
+    region: frankfurt
+    healthCheckPath: /api/health
+    disk:
+      name: tds-data
+      mountPath: /var/data
+      sizeGB: 1
+    envVars:
+      - key: TDS_DB_PATH
+        value: /var/data/tds.db
+      # Render's proxy terminates HTTPS: trust it, so the session cookie is marked secure.
+      - key: TDS_TRUST_PROXY
+        value: "1"
+      # Optional: AI translation suggestions. Render asks for the value when the Blueprint is created.
+      - key: ANTHROPIC_API_KEY
+        sync: false
