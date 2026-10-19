@@ -27,7 +27,8 @@ const CANDIDATES = [
 ].filter(Boolean);
 
 const EXTRA_ARGS = (process.env.TDS_BROWSER_ARGS ?? '').split(/\s+/).filter(Boolean);
-const CONCURRENCY = 3;
+// PDFs rendered at the same time; TDS_PDF_CONCURRENCY=1 on hosts with little memory.
+const CONCURRENCY = Math.max(1, Number(process.env.TDS_PDF_CONCURRENCY) || 3);
 const RENDER_TIMEOUT_MS = 20000;
 
 let browserPromise = null;

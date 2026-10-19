@@ -1,21 +1,26 @@
-# Render Blueprint: Dashboard › New › Blueprint, pick this repository.
-# The SQLite database lives on a persistent disk; disks need a paid instance type.
+# Render Blueprint (free plan): Dashboard › New › Blueprint, pick this repository.
+#
+# Free instances have no persistent disk: the SQLite database lives inside the
+# container and starts fresh (with the test products) on every deploy and
+# every wake-up after ~15 minutes without visitors. Fine for this test
+# prototype; for data that must survive, use a paid instance with a disk.
 services:
   - type: web
     name: tds-platform
     runtime: docker
-    plan: starter
+    plan: free
     region: frankfurt
     healthCheckPath: /api/health
-    disk:
-      name: tds-data
-      mountPath: /var/data
-      sizeGB: 1
     envVars:
-      - key: TDS_DB_PATH
-        value: /var/data/tds.db
       # Render's proxy terminates HTTPS: trust it, so the session cookie is marked secure.
       - key: TDS_TRUST_PROXY
+        value: "1"
+      # Fixed first password of the "admin" user, so it stays the same after every
+      # fresh start. Render generates it; see the service's Environment tab.
+      - key: TDS_ADMIN_PASSWORD
+        generateValue: true
+      # 512 MB of memory: render one PDF at a time.
+      - key: TDS_PDF_CONCURRENCY
         value: "1"
       # Optional: AI translation suggestions. Render asks for the value when the Blueprint is created.
       - key: ANTHROPIC_API_KEY
