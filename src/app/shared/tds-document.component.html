@@ -1,0 +1,338 @@
+@let d = doc();
+@let isNw = nw();
+
+<!-- ===== Sheets ===== -->
+@for (sheet of sheets(); track $index; let n = $index; let count = $count; let first = $first; let last = $last) {
+  <article
+    [attr.lang]="d.language.toLowerCase()"
+    class="tds-page relative mx-auto mb-6 flex h-[297mm] w-[210mm] flex-col overflow-hidden bg-white px-[12mm] py-[10mm] font-[Arial,Helvetica,sans-serif] leading-[1.3] text-black shadow-lg last:mb-0"
+    [class]="isNw ? 'tds-nw text-[8.6pt]' : 'tds-sf text-[8.5pt]'"
+    [style.--tds-bar]="d.barColor"
+  >
+    <ng-container [ngTemplateOutlet]="first ? headerFirst : headerNext" />
+
+    <div class="min-h-0" [style.width.mm]="contentWidth / sheet.scale" [style.zoom]="sheet.scale">
+      @for (item of sheet.items; track $index) {
+        @if (item.k === 'unit') {
+          <ng-container [ngTemplateOutlet]="unitTpl" [ngTemplateOutletContext]="{ $implicit: item.u }" />
+        } @else {
+          <div [class]="item.continued ? 'pt-[1mm]' : isNw ? 'pt-[2mm]' : 'pt-[1.4mm]'">
+            <ng-container [ngTemplateOutlet]="tableTpl" [ngTemplateOutletContext]="{ $implicit: item.block, rows: item.rows, head: true }" />
+          </div>
+        }
+      }
+    </div>
+
+    <div class="mt-auto">
+      <ng-container [ngTemplateOutlet]="last ? footerLast : footerNext" [ngTemplateOutletContext]="{ n: n + 1, count }" />
+    </div>
+  </article>
+}
+
+<!-- ===== Measuring area: every unit at print width, never visible ===== -->
+<div class="tds-measure-wrap relative h-0 overflow-hidden" aria-hidden="true">
+  <div class="absolute left-0 top-0 w-[210mm] bg-white px-[12mm] font-[Arial,Helvetica,sans-serif] leading-[1.3] text-black" [class]="isNw ? 'tds-nw text-[8.6pt]' : 'tds-sf text-[8.5pt]'" [style.--tds-bar]="d.barColor" style="visibility: hidden">
+    <div #ref class="absolute left-0 top-0 h-[297mm] w-px"></div>
+    <div #headFirst><ng-container [ngTemplateOutlet]="headerFirst" /></div>
+    <div #headNext><ng-container [ngTemplateOutlet]="headerNext" /></div>
+    <div #footLast><ng-container [ngTemplateOutlet]="footerLast" [ngTemplateOutletContext]="{ n: 1, count: 1 }" /></div>
+    <div #footNext><ng-container [ngTemplateOutlet]="footerNext" [ngTemplateOutletContext]="{ n: 1, count: 1 }" /></div>
+    <div [style.width.mm]="contentWidth">
+      @for (u of units(); track $index) {
+        <div #unit>
+          @if (u.k === 'thead' || u.k === 'trow') {
+            <div [class]="gap(u)">
+              <ng-container [ngTemplateOutlet]="tableTpl" [ngTemplateOutletContext]="{ $implicit: u.block, rows: u.k === 'trow' ? [u.row] : [], head: u.k === 'thead' }" />
+            </div>
+          } @else {
+            <ng-container [ngTemplateOutlet]="unitTpl" [ngTemplateOutletContext]="{ $implicit: u }" />
+          }
+        </div>
+      }
+    </div>
+  </div>
+</div>
+
+<!-- ===== One unit ===== -->
+<ng-template #unitTpl let-u>
+  @switch (u.k) {
+    @case ('title') {
+      <div [class]="gap(u)">
+        <h2 class="tds-bar">
+          @if (u.section.number) {
+            {{ u.section.number }}.
+          }
+          {{ u.section.title }}
+        </h2>
+      </div>
+    }
+    @case ('heading') {
+      <div [class]="gap(u)" class="tds-indent">
+        <h3 class="tds-heading" [class.tds-guideline]="u.block.style === 'guideline'">{{ u.block.text }}</h3>
+      </div>
+    }
+    @case ('rich') {
+      <div [class]="gap(u) + ' ' + styleClass(u.block.style)" class="tds-indent">
+        <app-doc-block [block]="u.doc" />
+      </div>
+    }
+    @case ('block') {
+      <div [class]="gap(u)" class="tds-indent">
+        <ng-container [ngTemplateOutlet]="blockTpl" [ngTemplateOutletContext]="{ $implicit: u.block }" />
+      </div>
+    }
+  }
+</ng-template>
+
+<!-- ===== A whole block (inside columns, or facts / ratings) ===== -->
+<ng-template #blockTpl let-b>
+  @switch (b.kind) {
+    @case ('heading') {
+      <h3 class="tds-heading" [class.tds-guideline]="b.style === 'guideline'">{{ b.text }}</h3>
+    }
+    @case ('rich') {
+      <app-doc-blocks [class]="styleClass(b.style)" [blocks]="b.blocks" />
+    }
+    @case ('table') {
+      <ng-container [ngTemplateOutlet]="tableTpl" [ngTemplateOutletContext]="{ $implicit: b, rows: b.rows, head: true }" />
+    }
+    @case ('columns') {
+      <div class="grid gap-[6mm]" [style.grid-template-columns]="'repeat(' + b.columns.length + ', minmax(0, 1fr))'">
+        @for (col of b.columns; track $index) {
+          <div class="min-w-0 space-y-[1mm]">
+            @for (child of col; track child.id) {
+              <ng-container [ngTemplateOutlet]="blockTpl" [ngTemplateOutletContext]="{ $implicit: child }" />
+            }
+          </div>
+        }
+      </div>
+    }
+    @case ('ratings') {
+      <table class="w-full border-collapse">
+        <tbody>
+          @for (r of b.items; track r.key) {
+            <tr>
+              <th class="w-[42%] py-0 pr-2 text-left font-bold">{{ r.label }}</th>
+              <td class="py-0">
+                <!-- SVG fill, not background-color: browsers drop backgrounds when printing. -->
+                <svg
+                  class="block h-[8px]"
+                  [attr.width]="b.max * 11 - 3"
+                  [attr.viewBox]="'0 0 ' + (b.max * 11 - 3) + ' 8'"
+                  role="img"
+                  [attr.aria-label]="r.label + ': ' + (r.value ?? 'n.a.') + ' / ' + b.max"
+                >
+                  @for (p of positions(b.max); track p) {
+                    <circle [attr.cx]="(p - 1) * 11 + 4" cy="4" r="4" [attr.fill]="r.value !== null && p <= r.value ? '#3c3c3c' : '#d9d9d9'" />
+                  }
+                </svg>
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    }
+    @case ('facts') {
+      @if (b.layout === 'columns') {
+        @let fh = factsHead(b.items);
+        <table class="tds-facts-cols" [class]="styleClass(b.style)">
+          <thead>
+            <tr>
+              @for (c of fh.top; track $index) {
+                <th [attr.colspan]="c.colspan" [attr.rowspan]="c.rowspan">{{ c.text }}</th>
+              }
+            </tr>
+            @if (fh.sub.length) {
+              <tr>
+                @for (s of fh.sub; track $index) {
+                  <th class="!font-normal">{{ s }}</th>
+                }
+              </tr>
+            }
+          </thead>
+          <tbody>
+            <tr>
+              @for (it of b.items; track $index) {
+                <td>{{ it.value }}</td>
+              }
+            </tr>
+          </tbody>
+        </table>
+      } @else {
+        <table class="w-full border-collapse" [class]="styleClass(b.style)">
+          <tbody>
+            @for (it of b.items; track $index) {
+              <tr class="align-top">
+                <th class="w-1/2 py-0 pr-2 text-left font-bold">{{ it.label }}</th>
+                <td class="py-0">
+                  {{ it.value }}
+                  @if (it.note) {
+                    <span class="text-[7pt] text-neutral-600">({{ it.note }})</span>
+                  }
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      }
+    }
+  }
+</ng-template>
+
+<!-- ===== Table (anilox rollers, product list) ===== -->
+<ng-template #tableTpl let-b let-rows="rows" let-head="head">
+  <table class="tds-table" [class]="b.style === 'grid' ? 'tds-table-grid' : 'tds-table-plain'">
+    <colgroup>
+      @for (c of b.columns; track $index) {
+        <col [style.width.%]="c.width" />
+      }
+    </colgroup>
+    @if (head) {
+      <thead>
+        <tr>
+          @for (c of b.columns; track $index) {
+            <th [class.tds-vertical]="c.vertical" [style.text-align]="c.align">
+              @if (c.vertical) {
+                <span>{{ c.label }}</span>
+              } @else {
+                {{ c.label }}
+              }
+            </th>
+          }
+        </tr>
+      </thead>
+    }
+    @if (rows.length) {
+      <tbody>
+        @for (r of rows; track $index) {
+          <tr>
+            @for (cell of r; track $index; let ci = $index) {
+              <td [style.text-align]="b.columns[ci]?.align">{{ cell }}</td>
+            }
+          </tr>
+        }
+      </tbody>
+    }
+  </table>
+</ng-template>
+
+<!-- ===== Headers and footers of the business unit layouts ===== -->
+
+<ng-template #logos>
+  <div class="flex h-[15mm] items-start justify-between">
+    <img src="brand/ink-heart-soul.png" alt="Ink, Heart & Soul" class="mt-[3mm] h-[4mm] w-auto opacity-60 grayscale" />
+    @if (d.safetyLogo) {
+      <svg class="h-[15mm] w-[15mm]" viewBox="0 0 100 100" role="img" aria-label="Product safety · Transparency">
+        <circle cx="50" cy="50" r="47" fill="#3d4a6b" />
+        <circle cx="50" cy="50" r="40" fill="none" stroke="#fff" stroke-width="1.2" stroke-dasharray="2 3" />
+        <rect x="4" y="41" width="92" height="18" rx="3" fill="#fff" />
+        <text x="50" y="54" text-anchor="middle" font-family="Arial" font-size="11" font-weight="bold" fill="#3d4a6b">TRANSPARENCY</text>
+        <text x="50" y="30" text-anchor="middle" font-family="Arial" font-size="9.5" font-weight="bold" fill="#fff">PRODUCT</text>
+        <text x="50" y="74" text-anchor="middle" font-family="Arial" font-size="9.5" font-weight="bold" fill="#fff">SAFETY</text>
+      </svg>
+    } @else {
+      <span></span>
+    }
+    <img src="brand/siegwerk-logo.png" alt="Siegwerk" class="mt-[2mm] h-[8mm] w-auto" />
+  </div>
+</ng-template>
+
+<ng-template #headerFirst>
+  @if (isNw) {
+    <header>
+      <ng-container [ngTemplateOutlet]="logos" />
+      <div class="mt-[5mm] flex items-end justify-between gap-4">
+        <h1 class="text-[20pt] font-bold leading-none tracking-tight">{{ d.meta.title }}</h1>
+        @if (d.meta.issue) {
+          <span class="text-[10pt] font-bold">{{ d.labels.issue }} {{ d.meta.issue }}</span>
+        }
+      </div>
+      <div class="pt-[3mm]"><h2 class="tds-bar">{{ d.labels.productName }}</h2></div>
+      <p class="tds-indent flex gap-[8mm] pt-[2mm] text-[9pt]">
+        @if (d.salesCode) {
+          <strong>{{ d.salesCode }}</strong>
+        }
+        <span>{{ d.name }}</span>
+      </p>
+    </header>
+  } @else {
+    <header>
+      <div class="flex items-end justify-between gap-4">
+        <h1 class="text-[16pt] font-bold leading-none tracking-tight">{{ d.meta.title }}</h1>
+        <dl class="flex gap-5 text-[8pt]">
+          <div class="flex gap-1"><dt class="font-bold">{{ d.labels.region }}</dt><dd>{{ d.meta.region }}</dd></div>
+          <div class="flex gap-1"><dt class="font-bold">{{ d.labels.date }}</dt><dd>{{ d.meta.date }}</dd></div>
+          <div class="flex gap-1"><dt class="font-bold">{{ d.labels.version }}</dt><dd>{{ d.meta.version }}</dd></div>
+        </dl>
+      </div>
+      @if (d.header.seriesTitle) {
+        <div class="tds-bar mt-2">{{ d.header.seriesTitle }}</div>
+      }
+      <div class="bg-[#CFCFCF] px-2 py-0.5 text-[11pt] font-bold">{{ d.header.productTitle }}</div>
+    </header>
+  }
+</ng-template>
+
+<!-- Repeated on every further page, so a sheet can be identified on its own -->
+<ng-template #headerNext>
+  @if (isNw) {
+    <header class="pb-[1mm]"><ng-container [ngTemplateOutlet]="logos" /></header>
+  } @else {
+    <header>
+      <div class="flex items-end justify-between gap-4">
+        <span class="text-[11pt] font-bold leading-none tracking-tight">{{ d.meta.title }}</span>
+        <dl class="flex gap-5 text-[8pt]">
+          <div class="flex gap-1"><dt class="font-bold">{{ d.labels.date }}</dt><dd>{{ d.meta.date }}</dd></div>
+          <div class="flex gap-1"><dt class="font-bold">{{ d.labels.version }}</dt><dd>{{ d.meta.version }}</dd></div>
+        </dl>
+      </div>
+      <div class="mt-2 bg-[#CFCFCF] px-2 py-0.5 text-[10pt] font-bold">{{ d.header.productTitle }}</div>
+    </header>
+  }
+</ng-template>
+
+<ng-template #footerLast let-n="n" let-count="count">
+  @if (isNw) {
+    <footer class="pt-[4mm]">
+      @if (d.footer.disclaimer.length) {
+        <div class="tds-blocks text-[6.8pt] leading-[1.25]"><app-doc-blocks [blocks]="d.footer.disclaimer" /></div>
+      }
+      @if (d.footer.company.length) {
+        <div class="mt-[2mm] border-t border-neutral-400 pt-[1.5mm] text-center text-[8.5pt]"><app-doc-blocks [blocks]="d.footer.company" /></div>
+      }
+      <ng-container [ngTemplateOutlet]="docLine" [ngTemplateOutletContext]="{ n, count }" />
+    </footer>
+  } @else {
+    <ng-container [ngTemplateOutlet]="sfFooter" [ngTemplateOutletContext]="{ n, count }" />
+  }
+</ng-template>
+
+<ng-template #footerNext let-n="n" let-count="count">
+  @if (isNw) {
+    <footer class="pt-[4mm]"><ng-container [ngTemplateOutlet]="docLine" [ngTemplateOutletContext]="{ n, count }" /></footer>
+  } @else {
+    <ng-container [ngTemplateOutlet]="sfFooter" [ngTemplateOutletContext]="{ n, count }" />
+  }
+</ng-template>
+
+<ng-template #docLine let-n="n" let-count="count">
+  <div class="mt-[3mm] flex items-end justify-between text-[8pt]">
+    <span>{{ d.meta.docId }}</span>
+    <span class="text-neutral-500">{{ d.labels.page }} {{ n }} / {{ count }}</span>
+  </div>
+</ng-template>
+
+<ng-template #sfFooter let-n="n" let-count="count">
+  <footer class="pt-3 text-[7pt] leading-[1.2]">
+    <div class="border-t border-neutral-300 px-2 pt-1">
+      <div class="text-center font-bold"><app-doc-blocks [blocks]="d.footer.company" /></div>
+      @if (d.footer.disclaimer.length) {
+        <div class="mt-1 text-neutral-600"><app-doc-blocks [blocks]="d.footer.disclaimer" /></div>
+      }
+      <div class="mt-0.5 flex justify-between text-neutral-500">
+        <span>{{ d.meta.docId }}</span>
+        <span>{{ d.labels.page }} {{ n }} / {{ count }}</span>
+      </div>
+    </div>
+  </footer>
+</ng-template>

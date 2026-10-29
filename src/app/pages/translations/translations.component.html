@@ -1,0 +1,265 @@
+<div class="page">
+  <!-- Header -->
+  <div class="flex flex-wrap items-end justify-between gap-4">
+    <div>
+      <h1 class="page-title">{{ 'Translations' | t }}</h1>
+      <p class="page-subtitle">{{ 'Every text on the TDS, in every language. English is the source; missing texts appear in English.' | t }}</p>
+    </div>
+    @if (auth.isAdmin()) {
+      <div class="flex rounded-lg border border-line bg-surface-2 p-0.5 text-sm" role="tablist">
+        @for (t of [{ id: 'translate', label: 'Translate' }, { id: 'languages', label: 'Languages' }]; track t.id) {
+          <button
+            type="button"
+            role="tab"
+            [attr.aria-selected]="tab() === t.id"
+            class="rounded-md px-3 py-1.5 font-medium transition"
+            [class]="tab() === t.id ? 'bg-surface text-ink shadow-sm' : 'text-muted hover:text-ink'"
+            (click)="tab.set($any(t.id))"
+          >
+            {{ t.label | t }}
+          </button>
+        }
+      </div>
+    }
+  </div>
+
+  <!-- Language cards with progress -->
+  <div class="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+    @for (l of targetLanguages(); track l.code) {
+      @let s = summaryOf(l.code);
+      <button
+        type="button"
+        class="card p-4 text-left transition hover:border-brand-500/40"
+        [class]="lang() === l.code && tab() === 'translate' ? '!border-brand-500 ring-1 ring-brand-500' : ''"
+        [class.opacity-60]="!l.active"
+        (click)="tab.set('translate'); selectLanguage(l.code)"
+      >
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-2">
+            <span class="grid h-8 w-8 place-items-center rounded-lg bg-surface-2 text-xs font-bold text-ink-2">{{ l.code }}</span>
+            <span class="font-medium text-ink">{{ l.name }}</span>
+          </div>
+          @if (!l.active) {
+            <span class="badge-neutral">{{ 'Off' | t }}</span>
+          } @else if (s) {
+            <span class="text-sm font-semibold tabular-nums text-ink">{{ pct(s.approved, s.total).toFixed(0) }}%</span>
+          }
+        </div>
+        @if (s) {
+          <div class="mt-3 flex h-2 overflow-hidden rounded-full bg-surface-2" aria-hidden="true">
+            <span class="bg-emerald-500" [style.width.%]="pct(s.approved, s.total)"></span>
+            <span class="bg-sky-500" [style.width.%]="pct(s.suggested, s.total)"></span>
+            <span class="bg-amber-500" [style.width.%]="pct(s.outdated, s.total)"></span>
+          </div>
+          <div class="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-muted">
+            <span><span class="mr-1 inline-block h-1.5 w-1.5 rounded-full bg-emerald-500"></span>{{ '{n} approved' | t: { n: s.approved } }}</span>
+            <span><span class="mr-1 inline-block h-1.5 w-1.5 rounded-full bg-sky-500"></span>{{ '{n} to review' | t: { n: s.suggested } }}</span>
+            @if (s.outdated) {
+              <span><span class="mr-1 inline-block h-1.5 w-1.5 rounded-full bg-amber-500"></span>{{ '{n} outdated' | t: { n: s.outdated } }}</span>
+            }
+            @if (s.missing) {
+              <span><span class="mr-1 inline-block h-1.5 w-1.5 rounded-full bg-line-strong"></span>{{ '{n} missing' | t: { n: s.missing } }}</span>
+            }
+          </div>
+        }
+      </button>
+    } @empty {
+      <p class="text-sm text-muted">{{ 'No languages besides English yet.' | t }}</p>
+    }
+  </div>
+
+  <!-- ===== Translate ===== -->
+  @if (tab() === 'translate' && lang()) {
+    <!-- Toolbar -->
+    <div class="sticky top-16 z-10 -mx-4 mt-6 border-b border-line bg-canvas/90 px-4 py-3 backdrop-blur sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8">
+      <div class="flex flex-wrap items-center gap-3">
+        <div class="relative w-full max-w-xs">
+          <app-icon name="search" [size]="16" class="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-subtle" />
+          <input class="input pl-9" type="search" [placeholder]="'Search English or translation' | t" [attr.aria-label]="'Search texts' | t" [ngModel]="search()" (ngModelChange)="search.set($event); pager.reset()" />
+        </div>
+        <select class="input w-48" [attr.aria-label]="'Filter by section' | t" [ngModel]="group()" (ngModelChange)="group.set($event); pager.reset()">
+          <option value="">{{ 'All sections' | t }}</option>
+          @for (g of groups(); track g) {
+            <option [value]="g">{{ g | t }}</option>
+          }
+        </select>
+        <div class="flex flex-wrap rounded-lg border border-line bg-surface-2 p-0.5 text-xs" role="group" [attr.aria-label]="'Filter by status' | t">
+          @for (f of filters; track f.id) {
+            <button
+              type="button"
+              class="rounded-md px-2.5 py-1 font-medium transition"
+              [class]="filter() === f.id ? 'bg-surface text-ink shadow-sm' : 'text-muted hover:text-ink'"
+              (click)="filter.set(f.id); pager.reset()"
+            >
+              {{ f.label | t }} <span class="tabular-nums text-subtle">{{ counts()[f.id] }}</span>
+            </button>
+          }
+        </div>
+
+        <div class="ml-auto flex items-center gap-2">
+          @if (ai().enabled) {
+            <button type="button" class="btn-secondary" [disabled]="!untranslated().length || aiProgress() !== null" (click)="suggestAllMissing()">
+              <app-icon name="sparkles" [size]="16" />
+              @if (aiProgress(); as p) {
+                {{ 'Translating {done}/{total}…' | t: { done: p.done, total: p.total } }}
+              } @else {
+                {{ 'AI: translate {n} open' | t: { n: untranslated().length } }}
+              }
+            </button>
+          }
+          <button type="button" class="btn-primary" [disabled]="!counts().suggested" (click)="approveAll()">
+            <app-icon name="check" [size]="16" /> {{ 'Approve {n} reviewed' | t: { n: counts().suggested } }}
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Items -->
+    @if (loading()) {
+      <div class="mt-6 space-y-3">
+        @for (i of [1, 2, 3, 4]; track i) {
+          <div class="h-28 animate-pulse rounded-xl bg-surface-2"></div>
+        }
+      </div>
+    } @else {
+      @for (sec of sections(); track sec.group) {
+        <h2 class="mb-3 mt-8 text-xs font-semibold uppercase tracking-wider text-muted">{{ sec.group | t }}</h2>
+        <div class="space-y-3">
+          @for (i of sec.items; track key(i)) {
+            <article class="card overflow-hidden" [class]="isDirty(i) ? '!border-brand-500' : ''">
+              <div class="flex flex-wrap items-center gap-2 border-b border-line px-4 py-2">
+                <span class="text-sm font-medium text-ink">{{ i.label | t }}</span>
+                <span [class]="status[i.status].badge">{{ status[i.status].label | t }}</span>
+                @if (i.updated_by) {
+                  <span class="ml-auto text-[11px] text-subtle">{{ i.updated_by }} · {{ i.updated_at | timeAgo }}</span>
+                }
+              </div>
+              <div class="grid gap-px bg-line lg:grid-cols-2">
+                <!-- English source -->
+                <div class="bg-surface p-4">
+                  <div class="mb-1.5 flex items-center justify-between">
+                    <span class="text-[11px] font-semibold uppercase tracking-wider text-subtle">{{ 'English' | t }}</span>
+                    <button type="button" class="text-[11px] font-medium text-muted hover:text-ink" [title]="'Use the English text as a starting point' | t" (click)="copySource(i)">
+                      {{ 'Copy' | t }} →
+                    </button>
+                  </div>
+                  <p class="whitespace-pre-line text-sm text-ink-2">{{ i.source }}</p>
+                </div>
+                <!-- Translation -->
+                <div class="bg-surface p-4">
+                  <label class="mb-1.5 block text-[11px] font-semibold uppercase tracking-wider text-subtle" [for]="'t-' + key(i)">{{ current()?.name ?? lang() }}</label>
+                  @if (i.multiline) {
+                    <textarea
+                      [id]="'t-' + key(i)"
+                      class="input text-sm"
+                      [rows]="i.source.length > 300 ? 8 : 4"
+                      [attr.lang]="lang()?.toLowerCase()"
+                      [placeholder]="'Not translated – the English text is used' | t"
+                      [ngModel]="value(i)"
+                      (ngModelChange)="setDraft(i, $event)"
+                    ></textarea>
+                  } @else {
+                    <input
+                      [id]="'t-' + key(i)"
+                      class="input"
+                      [attr.lang]="lang()?.toLowerCase()"
+                      [placeholder]="'Not translated – the English text is used' | t"
+                      [ngModel]="value(i)"
+                      (ngModelChange)="setDraft(i, $event)"
+                    />
+                  }
+                  <div class="mt-2 flex flex-wrap items-center justify-end gap-2">
+                    @if (ai().enabled && !isDirty(i)) {
+                      <button type="button" class="btn-ghost btn-sm" [disabled]="saving().has(key(i))" (click)="suggestOne(i)">
+                        <app-icon name="sparkles" [size]="14" /> {{ 'Suggest' | t }}
+                      </button>
+                    }
+                    @if (isDirty(i)) {
+                      <button type="button" class="btn-ghost btn-sm" (click)="discard(i)">{{ 'Discard' | t }}</button>
+                      <button type="button" class="btn-primary btn-sm" [disabled]="saving().has(key(i))" (click)="save(i)">
+                        <app-icon name="check" [size]="14" /> {{ 'Save' | t }}
+                      </button>
+                    } @else if ((i.status === 'suggested' || i.status === 'outdated') && i.text) {
+                      <button type="button" class="btn-secondary btn-sm" [disabled]="saving().has(key(i))" (click)="save(i)">
+                        <app-icon name="check" [size]="14" /> {{ (i.status === 'outdated' ? 'Still correct' : 'Approve') | t }}
+                      </button>
+                    }
+                  </div>
+                </div>
+              </div>
+            </article>
+          }
+        </div>
+      } @empty {
+        <div class="mt-10 grid place-items-center text-center" data-empty>
+          <span class="grid h-12 w-12 place-items-center rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+            <app-icon name="check-circle" [size]="22" />
+          </span>
+          <p class="mt-3 text-sm text-muted">
+            {{ filter() === 'open' ? ('Nothing left to do in {name}.' | t: { name: current()?.name ?? lang() }) : ('No texts match.' | t) }}
+          </p>
+        </div>
+      }
+      @if (pager.pageCount() > 1) {
+        <div class="card mt-6"><app-pagination [total]="pager.total()" [(page)]="pager.page" [(pageSize)]="pager.pageSize" /></div>
+      }
+    }
+  }
+
+  <!-- ===== Languages (admin) ===== -->
+  @if (tab() === 'languages' && auth.isAdmin()) {
+    <section class="card mt-6 max-w-3xl overflow-hidden">
+      <table class="table">
+        <thead>
+          <tr>
+            <th>{{ 'Code' | t }}</th>
+            <th>{{ 'Language' | t }}</th>
+            <th>{{ 'Status' | t }}</th>
+            <th class="text-right"><span class="sr-only">{{ 'Actions' | t }}</span></th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (l of languages(); track l.code) {
+            <tr>
+              <td class="font-mono text-xs font-semibold text-ink-2">{{ l.code }}</td>
+              <td class="text-ink">{{ l.name }}</td>
+              <td>
+                @if (l.base) {
+                  <span class="badge-brand">{{ 'Source language' | t }}</span>
+                } @else if (l.active) {
+                  <span class="badge-green">{{ 'Active' | t }}</span>
+                } @else {
+                  <span class="badge-neutral">{{ 'Off' | t }}</span>
+                }
+              </td>
+              <td>
+                @if (!l.base) {
+                  <div class="flex justify-end gap-1">
+                    <button type="button" class="btn-ghost btn-sm" (click)="toggleLanguage(l)">{{ (l.active ? 'Switch off' : 'Switch on') | t }}</button>
+                    <button type="button" class="btn-icon h-8 w-8 hover:!text-red-600" [attr.aria-label]="'Delete {name}' | t: { name: l.name }" [title]="'Delete' | t" (click)="deleteLanguage(l)">
+                      <app-icon name="trash" [size]="16" />
+                    </button>
+                  </div>
+                }
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+      <form class="flex flex-wrap items-end gap-3 border-t border-line p-4" (ngSubmit)="addLanguage()">
+        <div>
+          <label class="label" for="lang-code">{{ 'Code' | t }}</label>
+          <input id="lang-code" name="code" class="input w-28 font-mono uppercase" placeholder="ES" maxlength="5" [(ngModel)]="newCode" />
+        </div>
+        <div class="min-w-48 flex-1">
+          <label class="label" for="lang-name">{{ 'Name' | t }}</label>
+          <input id="lang-name" name="name" class="input" placeholder="Español" [(ngModel)]="newName" />
+        </div>
+        <button type="submit" class="btn-primary" [disabled]="!newCode.trim() || !newName.trim()"><app-icon name="plus" [size]="16" /> {{ 'Add language' | t }}</button>
+      </form>
+      <p class="border-t border-line px-4 py-3 text-xs text-muted">
+        {{ 'Switched-off languages keep their translations but are hidden in the TDS Creator.' | t }}
+      </p>
+    </section>
+  }
+</div>

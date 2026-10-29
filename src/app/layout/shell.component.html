@@ -1,0 +1,308 @@
+<div class="flex min-h-screen">
+  <!-- Mobile drawer backdrop -->
+  @if (drawerOpen()) {
+    <div class="no-print fixed inset-0 z-30 animate-fade-in bg-slate-950/40 lg:hidden" (click)="drawerOpen.set(false)"></div>
+  }
+
+  <!-- Sidebar: a floating panel. Profile on top, navigation, "Let's start" card at the bottom. -->
+  <aside
+    class="no-print fixed inset-y-0 left-0 z-40 flex p-3 transition-[width,transform] duration-200 ease-out lg:sticky lg:top-0 lg:h-screen lg:translate-x-0"
+    [class]="(collapsed() ? 'lg:w-[100px] ' : 'lg:w-[280px] ') + (drawerOpen() ? 'w-[280px] translate-x-0' : 'w-[280px] -translate-x-full')"
+    [attr.aria-label]="'Main navigation' | t"
+  >
+    <!-- Collapse button on the panel's edge; outside the panel, so its clipping never cuts it -->
+    <button
+      type="button"
+      class="absolute right-0 top-[29px] z-10 hidden h-6 w-6 place-items-center rounded-full border border-line bg-surface text-muted shadow-sm transition hover:text-ink lg:grid"
+      (click)="collapsed.set(!collapsed())"
+      [attr.aria-label]="(collapsed() ? 'Expand sidebar' : 'Collapse sidebar') | t"
+      [title]="(collapsed() ? 'Expand sidebar' : 'Collapse sidebar') | t"
+    >
+      <app-icon name="chevron-right" [size]="14" [stroke]="2.2" class="transition-transform" [class.rotate-180]="!collapsed()" />
+    </button>
+    <div
+      class="relative flex min-h-0 w-full flex-col rounded-[26px] border border-line/70 bg-surface shadow-[0_18px_40px_-18px_rgb(15_23_42/0.25)] dark:shadow-[0_18px_40px_-18px_rgb(0_0_0/0.7)]"
+      [class.nav-collapsed]="collapsed()"
+      [class.overflow-x-clip]="!collapsed()"
+    >
+      <!-- Brand -->
+      <a
+        routerLink="/"
+        class="flex h-14 shrink-0 items-center overflow-hidden px-5 pt-1"
+        [class]="collapsed() ? 'lg:justify-center lg:px-0' : ''"
+        [attr.aria-label]="'TDS Platform home' | t"
+      >
+        @if (collapsed()) {
+          <img src="brand/siegwerk-mark.png" alt="Siegwerk" class="hidden h-7 w-auto lg:block" />
+        }
+        <span class="flex items-center gap-2.5 whitespace-nowrap" [class]="collapsed() ? 'lg:hidden' : ''">
+          <img src="brand/siegwerk-logo.png" alt="Siegwerk" class="h-6 w-auto dark:hidden" />
+          <img src="brand/siegwerk-logo-light.png" alt="Siegwerk" class="hidden h-6 w-auto dark:block" />
+          <span class="text-xs font-medium text-muted">TDS {{ 'Platform' | t }}</span>
+        </span>
+      </a>
+
+
+      <div class="mx-5 mt-2 border-t border-line/70"></div>
+
+      <!-- Navigation. Collapsed, nothing scrolls, so the flyouts can leave the panel. -->
+      <nav class="flex-1 space-y-5 px-3 py-4" [class]="collapsed() ? 'overflow-y-auto lg:overflow-visible' : 'overflow-y-auto'">
+        @for (section of nav(); track section.title) {
+          <div>
+            <div class="mb-2 truncate px-3 text-[10px] font-semibold uppercase tracking-[0.1em] text-subtle" [class]="collapsed() ? 'lg:hidden' : ''">
+              {{ section.title | t }}
+            </div>
+            @if (collapsed()) {
+              <div class="mx-auto mb-3 hidden h-px w-6 bg-line-strong lg:block" [attr.title]="section.title | t"></div>
+            }
+            <ul class="space-y-1">
+              @for (item of section.items; track item.path) {
+                <li class="group/item relative">
+                  @if (item.children) {
+                    <!-- Group with tree lines; a flyout when collapsed -->
+                    <button
+                      type="button"
+                      class="flex h-11 w-full items-center gap-3 overflow-hidden whitespace-nowrap rounded-xl px-[17px] text-sm font-medium text-ink-2 transition-colors hover:bg-surface-2 hover:text-ink"
+                      [class.bg-surface-2]="groupActive(item)"
+                      [class.text-ink]="groupActive(item)"
+                      [attr.aria-expanded]="groupOpen(item)"
+                      (click)="toggleGroup(item)"
+                    >
+                      <app-icon [name]="item.icon" [class]="groupActive(item) ? 'text-brand-600 dark:text-brand-400' : 'text-subtle'" />
+                      <span class="nav-label flex-1 truncate text-left">{{ item.label | t }}</span>
+                      <span class="nav-label">
+                        <app-icon name="chevron-down" [size]="15" class="text-subtle transition-transform" [class.rotate-180]="groupOpen(item)" />
+                      </span>
+                    </button>
+                    @if (groupOpen(item)) {
+                      <ul class="relative ml-[22px] mt-1 space-y-0.5 border-l border-line-strong/70 pl-3" [class]="collapsed() ? 'lg:hidden' : ''">
+                        @for (c of item.children; track c.path) {
+                          <li class="relative before:absolute before:-left-3 before:top-1/2 before:h-px before:w-2.5 before:bg-line-strong/70">
+                            <a
+                              [routerLink]="c.path"
+                              routerLinkActive="!bg-brand-500/10 !text-brand-700 dark:!text-brand-300 font-semibold"
+                              class="flex h-9 items-center rounded-lg px-3 text-[13px] text-muted transition hover:bg-surface-2 hover:text-ink"
+                              >{{ c.label | t }}</a
+                            >
+                          </li>
+                        }
+                      </ul>
+                    }
+                    @if (collapsed()) {
+                      <!-- The ::before strip bridges the gap to the item, and hiding waits a moment, so the cursor can reach the links -->
+                      <ul
+                        class="invisible absolute left-full top-0 z-50 ml-3 hidden w-52 rounded-2xl border border-line bg-surface p-1.5 opacity-0 shadow-pop transition-[opacity,visibility] delay-150 duration-150 before:absolute before:-left-4 before:-top-2 before:h-[calc(100%+16px)] before:w-4 before:content-[''] group-hover/item:visible group-hover/item:opacity-100 group-hover/item:delay-0 group-focus-within/item:visible group-focus-within/item:opacity-100 lg:block"
+                        role="menu"
+                      >
+                        <li class="px-3 pb-1 pt-1.5 text-[10px] font-semibold uppercase tracking-[0.1em] text-subtle">{{ item.label | t }}</li>
+                        @for (c of item.children; track c.path) {
+                          <li>
+                            <a
+                              role="menuitem"
+                              [routerLink]="c.path"
+                              routerLinkActive="!bg-brand-500/10 !text-brand-700 dark:!text-brand-300 font-semibold"
+                              class="flex h-9 items-center rounded-xl px-3 text-[13px] text-ink-2 transition hover:bg-surface-2 hover:text-ink"
+                              >{{ c.label | t }}</a
+                            >
+                          </li>
+                        }
+                      </ul>
+                    }
+                  } @else {
+                    <a
+                      [routerLink]="item.path"
+                      routerLinkActive="!bg-surface-2 !text-ink [&_app-icon]:!text-brand-600 dark:[&_app-icon]:!text-brand-400"
+                      [routerLinkActiveOptions]="{ exact: !!item.exact }"
+                      class="flex h-11 items-center gap-3 overflow-hidden whitespace-nowrap rounded-xl px-[17px] text-sm font-medium text-ink-2 transition-colors hover:bg-surface-2 hover:text-ink"
+                      [attr.title]="collapsed() ? (item.label | t) : null"
+                    >
+                      <app-icon [name]="item.icon" class="text-subtle transition" />
+                      <span class="nav-label truncate">{{ item.label | t }}</span>
+                    </a>
+                  }
+                </li>
+              }
+            </ul>
+          </div>
+        }
+      </nav>
+
+      <!-- "Let's start" card: a new data sheet in one click -->
+      @if (auth.isEditor()) {
+        <div class="overflow-hidden p-3 pt-0">
+          <div class="min-w-[226px] rounded-2xl border border-line/70 bg-surface-2/70 p-4 text-center" [class]="collapsed() ? 'lg:hidden' : ''">
+            <div class="text-sm font-semibold text-ink">{{ "Let's start!" | t }}</div>
+            <p class="mt-1 text-xs leading-relaxed text-muted">{{ 'Creating a new data sheet couldn’t be easier.' | t }}</p>
+            <a routerLink="/database/products/new" class="btn-primary mt-3 w-full rounded-xl shadow-[0_6px_16px_-6px_rgb(216_0_10/0.6)]">
+              <app-icon name="plus" [size]="16" [stroke]="2.2" /> {{ 'New product' | t }}
+            </a>
+          </div>
+          @if (collapsed()) {
+            <a
+              routerLink="/database/products/new"
+              class="btn-primary mx-auto hidden h-11 w-11 rounded-xl px-0 shadow-[0_6px_16px_-6px_rgb(216_0_10/0.6)] lg:flex"
+              [attr.aria-label]="'New product' | t"
+              [title]="'New product' | t"
+            >
+              <app-icon name="plus" [size]="18" [stroke]="2.2" />
+            </a>
+          }
+        </div>
+      }
+    </div>
+  </aside>
+
+  <!-- Main column -->
+  <div class="flex min-w-0 flex-1 flex-col">
+    <!-- Top bar -->
+    <!-- Floating like the sidebar: same gap, corner radius, border and shadow; the sidebar's top edge lines up with it. -->
+    <div
+      class="no-print sticky top-0 z-20 px-3 pt-3 transition-transform duration-300 ease-out lg:pl-0"
+      [style.transform]="headerHidden() ? 'translateY(calc(-100% - 4px))' : null"
+    >
+    <header class="flex h-14 items-center gap-3 rounded-[20px] border border-line/70 bg-surface/85 px-4 shadow-[0_18px_40px_-22px_rgb(15_23_42/0.25)] backdrop-blur-md dark:shadow-[0_18px_40px_-22px_rgb(0_0_0/0.7)] sm:px-5">
+      <button type="button" class="btn-icon lg:hidden" [attr.aria-label]="'Open navigation' | t" (click)="drawerOpen.set(true)">
+        <app-icon name="menu" />
+      </button>
+
+      <nav [attr.aria-label]="'Breadcrumb' | t" class="min-w-0 flex-1">
+        <ol class="flex items-center gap-1.5 text-sm">
+          @for (c of crumbs(); track $index; let last = $last) {
+            <li class="truncate" [class]="last ? 'font-medium text-ink' : 'text-muted'">{{ c | t }}</li>
+            @if (!last) {
+              <li class="text-subtle" aria-hidden="true"><app-icon name="chevron-right" [size]="14" /></li>
+            }
+          }
+        </ol>
+      </nav>
+
+      <!-- Workspace: which region and business unit the lists show -->
+      @if (scope.org()) {
+        <div class="hidden items-center gap-1 rounded-lg border border-line bg-surface-2 p-0.5 md:flex" role="group" [attr.aria-label]="'Workspace' | t">
+          <app-icon name="layers" [size]="14" class="mx-1.5 text-subtle" />
+          <select
+            class="h-7 rounded-md border-0 bg-transparent py-0 pl-1.5 pr-7 text-xs font-medium text-ink focus:ring-2 focus:ring-brand-500/40"
+            [attr.aria-label]="'Business unit' | t"
+            [value]="scope.bu()"
+            (change)="scope.bu.set($any($event.target).value)"
+          >
+            <option value="">{{ 'All business units' | t }}</option>
+            @for (b of scope.businessUnits(); track b.code) {
+              <option [value]="b.code" [selected]="scope.bu() === b.code">{{ b.name }}</option>
+            }
+          </select>
+          <span class="h-4 w-px bg-line-strong" aria-hidden="true"></span>
+          <select
+            class="h-7 rounded-md border-0 bg-transparent py-0 pl-1.5 pr-7 text-xs font-medium text-ink focus:ring-2 focus:ring-brand-500/40"
+            [attr.aria-label]="'Region' | t"
+            [value]="scope.region()"
+            (change)="scope.region.set($any($event.target).value)"
+          >
+            <option value="">{{ 'All regions' | t }}</option>
+            @for (r of scope.regions(); track r.code) {
+              <option [value]="r.code" [selected]="scope.region() === r.code">{{ r.code }}</option>
+            }
+          </select>
+        </div>
+      }
+
+
+      <!-- User menu -->
+      @if (auth.user(); as u) {
+        <div class="relative" data-user-menu>
+          <button
+            type="button"
+            class="flex items-center gap-2.5 rounded-full py-1 pl-1 pr-2 transition hover:bg-surface-2"
+            [attr.aria-expanded]="menuOpen()"
+            aria-haspopup="menu"
+            (click)="menuOpen.set(!menuOpen())"
+          >
+            <app-avatar [name]="u.display_name" [size]="32" />
+            <span class="hidden text-left sm:block">
+              <span class="block text-sm font-medium leading-tight text-ink">{{ u.display_name }}</span>
+              <span class="block text-xs leading-tight text-muted">{{ (roleBadge()?.label ?? 'No access' ) | t }}</span>
+            </span>
+            <app-icon name="chevron-down" [size]="16" class="text-subtle" />
+          </button>
+
+          @if (menuOpen()) {
+            <div role="menu" class="absolute right-0 top-full mt-2 w-72 animate-pop-in overflow-hidden rounded-xl border border-line bg-surface shadow-pop">
+              <div class="flex items-center gap-3 border-b border-line p-4">
+                <app-avatar [name]="u.display_name" [size]="40" />
+                <div class="min-w-0">
+                  <div class="truncate text-sm font-semibold text-ink">{{ u.display_name }}</div>
+                  <div class="truncate text-xs text-muted">{{ u.email || '@' + u.username }}</div>
+                  @if (roleBadge(); as rb) {
+                    <span class="mt-1" [class]="rb.badge">{{ rb.label | t }}</span>
+                  }
+                </div>
+              </div>
+
+              <div class="p-2">
+                <a routerLink="/account" role="menuitem" class="flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-ink-2 hover:bg-surface-2" (click)="menuOpen.set(false)">
+                  <app-icon name="key" class="text-subtle" /> {{ 'Account & password' | t }}
+                </a>
+                @if (auth.isAdmin()) {
+                  <a routerLink="/admin/users" role="menuitem" class="flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-ink-2 hover:bg-surface-2" (click)="menuOpen.set(false)">
+                    <app-icon name="shield" class="text-subtle" /> {{ 'Users & roles' | t }}
+                  </a>
+                }
+              </div>
+
+              <div class="border-t border-line p-3">
+                <div class="mb-2 px-1 text-xs font-medium text-muted">{{ 'Theme' | t }}</div>
+                <div class="grid grid-cols-3 gap-1 rounded-lg bg-surface-2 p-1" role="radiogroup" [attr.aria-label]="'Theme' | t">
+                  @for (t of themes; track t.mode) {
+                    <button
+                      type="button"
+                      role="radio"
+                      [attr.aria-checked]="theme.mode() === t.mode"
+                      class="flex items-center justify-center gap-1.5 rounded-md py-1.5 text-xs font-medium transition"
+                      [class]="theme.mode() === t.mode ? 'bg-surface text-ink shadow-sm' : 'text-muted hover:text-ink'"
+                      (click)="theme.mode.set(t.mode)"
+                    >
+                      <app-icon [name]="t.icon" [size]="14" /> {{ t.label | t }}
+                    </button>
+                  }
+                </div>
+              </div>
+
+              <div class="border-t border-line p-3">
+                <div class="mb-2 px-1 text-xs font-medium text-muted">{{ 'Language' | t }}</div>
+                <div class="grid grid-cols-3 gap-1 rounded-lg bg-surface-2 p-1" role="radiogroup" [attr.aria-label]="'Language' | t">
+                  @for (l of uiLanguages; track l.code) {
+                    <button
+                      type="button"
+                      role="radio"
+                      [attr.aria-checked]="i18n.lang() === l.code"
+                      [attr.lang]="l.code"
+                      class="rounded-md py-1.5 text-xs font-medium transition"
+                      [class]="i18n.lang() === l.code ? 'bg-surface text-ink shadow-sm' : 'text-muted hover:text-ink'"
+                      (click)="auth.setLanguage(l.code)"
+                    >
+                      {{ l.name }}
+                    </button>
+                  }
+                </div>
+              </div>
+
+              <div class="border-t border-line p-2">
+                <button type="button" role="menuitem" class="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm text-red-600 hover:bg-red-500/10 dark:text-red-400" (click)="auth.logout()">
+                  <app-icon name="logout" /> {{ 'Sign out' | t }}
+                </button>
+              </div>
+            </div>
+          }
+        </div>
+      }
+    </header>
+    </div>
+
+    <main class="min-w-0 flex-1">
+      <router-outlet />
+    </main>
+
+    <!-- Floating like the top bar; the sidebar supplies the left gap on desktop -->
+    <app-site-footer class="lg:pl-0" />
+  </div>
+</div>

@@ -1,0 +1,183 @@
+<div class="no-print flex h-[calc(100vh-4rem)] min-h-[560px]">
+  <!-- Product picker -->
+  <aside class="flex w-80 shrink-0 flex-col border-r border-line bg-surface">
+    <div class="space-y-2 border-b border-line p-3">
+      <div class="relative">
+        <app-icon name="search" [size]="16" class="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-subtle" />
+        <input class="input pl-9" type="search" [placeholder]="'Search code or name' | t" [attr.aria-label]="'Search products' | t" [ngModel]="search()" (ngModelChange)="search.set($event); pager.reset()" />
+      </div>
+      <div class="flex items-center gap-2">
+        <select class="input" [attr.aria-label]="'Filter by product type' | t" [ngModel]="type()" (ngModelChange)="type.set($event); pager.reset()">
+          <option value="">{{ 'All product types' | t }}</option>
+          @for (t of types(); track t) {
+            <option [value]="t">{{ t }}</option>
+          }
+        </select>
+        <button type="button" class="btn-ghost btn-sm" (click)="toggleAll()">{{ allFilteredSelected() ? ('Clear' | t) : ('Select all {n}' | t: { n: filtered().length }) }}</button>
+      </div>
+    </div>
+
+    <ul class="flex-1 overflow-y-auto p-2 transition-opacity" [class.opacity-60]="loading() && products().length">
+      <!-- Placeholders only for the first load; a reload keeps the current list until the new one is there. -->
+      @if (loading() && !products().length) {
+        @for (i of [1, 2, 3, 4, 5, 6]; track i) {
+          <li class="mb-1 h-14 animate-pulse rounded-lg bg-surface-2"></li>
+        }
+      }
+      @for (p of pager.items(); track p.id) {
+        <li
+          class="group mb-0.5 flex items-center gap-1 rounded-lg transition"
+          [class]="activeId() === p.id ? 'bg-brand-500/10 ring-1 ring-inset ring-brand-500/30' : 'hover:bg-surface-2'"
+        >
+          <input type="checkbox" class="checkbox ml-3" [attr.aria-label]="'Select {code}' | t: { code: p.sales_code ?? p.name }" [checked]="selected().has(p.id)" (change)="toggle(p.id)" />
+          <button type="button" class="min-w-0 flex-1 px-2.5 py-2 text-left" (click)="open(p.id)">
+            <div class="flex items-center gap-1.5">
+              <span class="font-mono text-[11px] text-muted">{{ p.sales_code ?? ('series' | t) }}</span>
+              <span class="badge-neutral !py-0 text-[10px]" [title]="scope.buName(p.bu_code)">{{ p.bu_code }}</span>
+              <span class="badge-neutral !py-0 text-[10px]" [title]="scope.regionName(p.region_code)">{{ p.region_code }}</span>
+              <span class="ml-auto text-[11px] text-subtle">v{{ p.version }}</span>
+            </div>
+            <div class="truncate text-sm font-medium text-ink">{{ p.name }}</div>
+          </button>
+        </li>
+      } @empty {
+        @if (!loading()) {
+          <li class="p-6 text-center text-sm text-muted">{{ 'No products match.' | t }}</li>
+        }
+      }
+    </ul>
+    <div class="border-t border-line">
+      @if (pager.pageCount() > 1) {
+        <app-pagination [compact]="true" [total]="pager.total()" [(page)]="pager.page" [(pageSize)]="pager.pageSize" />
+      } @else {
+        <div class="px-4 py-2.5 text-xs text-muted">{{ '{n} of {total} products' | t: { n: filtered().length, total: products().length } }}</div>
+      }
+    </div>
+  </aside>
+
+  <!-- Workspace -->
+  <section class="flex min-w-0 flex-1 flex-col">
+    <!-- Toolbar -->
+    <div class="flex flex-wrap items-center gap-2 border-b border-line bg-surface px-4 py-3">
+      <div class="mr-auto min-w-0 flex-1 basis-56">
+        @if (preview(); as doc) {
+          <div class="truncate text-sm font-semibold text-ink">{{ doc.salesCode }} {{ doc.name }}</div>
+          <div class="text-xs text-muted">
+            {{ doc.meta.buName }} · {{ doc.meta.region }} · {{ doc.templateCode }} · {{ 'Version {v}' | t: { v: doc.meta.version } }} · {{ doc.meta.date }}
+            @if (doc.translation; as tr) {
+              @if (tr.language !== 'EN') {
+                ·
+                @if (tr.missing) {
+                  <span class="text-amber-600 dark:text-amber-400" [title]="'Shown in English until translated' | t">{{ '{n} not translated' | t: { n: tr.missing } }}</span>
+                } @else if (tr.outdated) {
+                  <span class="text-amber-600 dark:text-amber-400" [title]="'The English text changed after translation' | t">{{ '{n} outdated' | t: { n: tr.outdated } }}</span>
+                } @else if (tr.suggested) {
+                  <span [title]="'Translations not approved yet' | t">{{ '{n} to review' | t: { n: tr.suggested } }}</span>
+                } @else {
+                  <span class="text-emerald-600 dark:text-emerald-400">{{ 'fully translated' | t }}</span>
+                }
+                @if (auth.isEditor() && (tr.missing || tr.outdated || tr.suggested)) {
+                  <a routerLink="/translations" [queryParams]="{ lang: tr.language }" class="ml-1 font-medium text-brand-600 hover:underline dark:text-brand-400">{{ 'Review' | t }}</a>
+                }
+              }
+            }
+            @if (fit(); as f) {
+              ·
+              <span>{{ (f.pages === 1 ? '1 page' : '{n} pages') | t: { n: f.pages } }}</span>
+              @if (f.scale < 1) {
+                {{ '(scaled {pct}%)' | t: { pct: (f.scale * 100).toFixed(0) } }}
+              }
+            }
+          </div>
+        }
+      </div>
+
+      @if (selected().size) {
+        <span class="badge-brand !py-1 !pl-2.5 !pr-1">
+          {{ '{n} selected' | t: { n: selected().size } }}
+          <button type="button" class="grid h-5 w-5 place-items-center rounded hover:bg-brand-500/20" [attr.aria-label]="'Clear selection' | t" (click)="clearSelection()">
+            <app-icon name="x" [size]="12" />
+          </button>
+        </span>
+      }
+
+      @if (activeLanguages().length > 1) {
+        <div class="flex items-center rounded-lg border border-line bg-surface-2 p-0.5 text-xs" role="radiogroup" [attr.aria-label]="'TDS language' | t">
+          <app-icon name="globe" [size]="14" class="mx-1.5 text-subtle" />
+          @for (l of activeLanguages(); track l.code) {
+            <button
+              type="button"
+              role="radio"
+              [attr.aria-checked]="lang() === l.code"
+              [title]="l.name"
+              class="rounded-md px-2 py-1 font-semibold transition"
+              [class]="lang() === l.code ? 'bg-surface text-ink shadow-sm' : 'text-muted hover:text-ink'"
+              (click)="setLang(l.code)"
+            >
+              {{ l.code }}
+            </button>
+          }
+        </div>
+      }
+
+      @if (preview(); as doc) {
+        @if (auth.can('editor', doc.meta.region, doc.meta.bu)) {
+          <a class="btn-secondary" [routerLink]="['/database/products', doc.productId]"><app-icon name="pencil" [size]="16" /> {{ 'Edit' | t }}</a>
+        }
+      }
+      <button type="button" class="btn-secondary" [disabled]="!targetIds().length || busy() !== null" (click)="print()">
+        <app-icon name="printer" [size]="16" /> {{ busy() === 'print' ? ('Preparing…' | t) : selected().size ? ('Print {n}' | t: { n: selected().size }) : ('Print' | t) }}
+      </button>
+      @if (activeLanguages().length > 1) {
+        <label class="flex items-center gap-1.5 text-xs text-ink-2" [title]="'Save every active language at once' | t">
+          <input type="checkbox" class="checkbox" [checked]="allLanguages()" (change)="allLanguages.set(!allLanguages())" />
+          {{ 'All languages' | t }}
+        </label>
+      }
+      <button type="button" class="btn-primary" [disabled]="!targetIds().length || busy() !== null" (click)="download()" [title]="'Opens the print dialog: choose “Save as PDF”.' | t">
+        @if (busy() === 'pdf') {
+          <span class="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white"></span>
+          {{ 'Preparing…' | t }}
+        } @else {
+          <app-icon name="download" [size]="16" />
+          {{ (downloadCount() > 1 ? 'Save {n} as PDF' : 'Save as PDF') | t: { n: downloadCount() } }}
+        }
+      </button>
+    </div>
+
+    <!-- Preview -->
+    <div class="min-h-0 flex-1 overflow-auto bg-surface-2/70 p-6 dark:bg-canvas" [attr.aria-label]="'TDS preview' | t">
+      @if (preview(); as doc) {
+        <!-- Zoom floats over the preview, so the toolbar keeps room for the actions -->
+        <div class="sticky top-0 z-10 -mb-8 flex justify-end">
+          <div class="flex items-center rounded-lg border border-line bg-surface/90 p-0.5 text-xs shadow-card backdrop-blur" role="group" [attr.aria-label]="'Zoom' | t">
+            @for (z of [0.6, 0.8, 1]; track z) {
+              <button type="button" class="rounded-md px-2 py-1 font-medium transition" [class]="zoom() === z ? 'bg-surface-2 text-ink' : 'text-muted hover:text-ink'" (click)="zoom.set(z)">
+                {{ z * 100 }}%
+              </button>
+            }
+          </div>
+        </div>
+        <div [style.zoom]="zoom()">
+          <app-tds-document [doc]="doc" (fitted)="fit.set($event)" />
+        </div>
+      } @else if (!loading()) {
+        <div class="grid h-full place-items-center text-center">
+          <div>
+            <span class="mx-auto grid h-12 w-12 place-items-center rounded-xl bg-surface text-subtle shadow-card"><app-icon name="file" [size]="22" /></span>
+            <p class="mt-3 text-sm text-muted">{{ 'Select a product to see its TDS.' | t }}</p>
+          </div>
+        </div>
+      }
+    </div>
+  </section>
+</div>
+
+<!-- What "Print" prints: rendered off-screen so every TDS can fit itself to a page. -->
+@if (printDocs().length) {
+  <div class="print-root" aria-hidden="true">
+    @for (doc of printDocs(); track $index) {
+      <app-tds-document [doc]="doc" (fitted)="onPrintDocFitted($index)" />
+    }
+  </div>
+}

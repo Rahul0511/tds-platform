@@ -1,238 +1,136 @@
-# TDS Platform (v0.1) – test prototype
+# TDS Platform (v0.3) – static website
 
-> **Test prototype, not a production application.** A "Test prototype" label
-> sits in the top bar and on the sign-in page
-> (`client/src/app/shared/ui/prototype-badge.component.ts`; not printed), and
-> the database holds made-up test products only.
+> **Test prototype.** The sample products are made up. A "Test prototype" label
+> sits in the top bar (not printed).
 
-A web app that replaces `TDS_Creator_EN_v6.xlsm` and `TDS-SF-OPV-database.xlsx`
-for Sheetfed water-based OPVs (varnishes).
+Technical data sheets (TDS) for the ink business, made in the browser. Pick a
+product, see its TDS on A4 pages in English, German or French, and print it
+or save it as a PDF. There is no server and no database: the site is plain
+static files, built with Angular 19 and Tailwind CSS 3.
 
-| Part   | Tech                                   | Folder    |
-| ------ | -------------------------------------- | --------- |
-| Client | Angular 19, Tailwind CSS 3             | `client/` |
-| Server | Node 22, Express 4, SQLite (better-sqlite3) | `server/` |
-
-## Run it
+## Run and build
 
 ```bash
-npm run install:all   # once
-npm run build         # build the Angular app
-npm start             # http://localhost:3000
+npm install      # once
+npm start        # http://localhost:4200, reloads on changes
+npm run build    # static site in dist/
 ```
 
-On first start the server creates `server/data/tds.db`. If the database has
-no products, the server adds three made-up test products
-(`99-000001-1` … `99-000003-3`, defined in `server/src/test-data.js`). To
-import the Excel instead, start once with
-`TDS_EXCEL_PATH=../TDS-SF-OPV-database.xlsx`.
+`dist/` can be served from any static host or file share: Render (see
+`render.yaml`), GitHub Pages, Netlify, an IIS or nginx folder. URLs use a hash
+(`#/edit/…`) and the base href is relative, so no rewrite rules are needed and
+a sub-folder works. Opening `dist/index.html` straight from disk does not work;
+browsers block the scripts. Serve the folder instead (for example
+`npx http-server dist`).
 
-Back to the test data at any time (deletes every product and its history;
-text blocks, rules, lookups and users stay). Stop the server first:
+## Where the data is
 
-```bash
-npm run reset-test-data
-```
+Products are stored in the **browser's local storage**. Each browser has its
+own copy. The first visit starts with the sample products.
 
-To develop with live reload, run both of these:
+* **Data › Export all products** saves every product as a `.json` file, as a
+  backup or to move them to another browser or person.
+* **Data › Import products** adds the products of such a file; a product with
+  the same id is replaced.
+* **Data › Restore sample data** replaces all products with the samples.
 
-```bash
-npm run dev:server    # API on :3000
-npm run dev:client    # app on http://localhost:4200, /api is proxied to :3000
-```
-
-Re-import the Excel at any time (products are matched on sales code and
-updated; every import is logged in the history):
-
-```bash
-npm run import                          # ../TDS-SF-OPV-database.xlsx
-npm run import -- "C:\path\to\file.xlsx"
-```
-
-## Sign-in and roles
-
-On the first start the server creates an `admin` account and prints a
-one-time password in the console (set `TDS_ADMIN_PASSWORD` beforehand to
-choose it). The first sign-in asks for a new password.
-
-| Role | Can do |
-| --- | --- |
-| **Viewer** | View products and history; preview, print and download TDS |
-| **Editor** | + create, edit and delete products; edit lookups, text blocks and header rules |
-| **Admin** | + users and roles (**Admin › Users & roles**), document settings, security log |
-
-* Admins add users in **Users & roles**. Each new user (and each password
-  reset) gets a one-time password that is shown once. At the first sign-in the
-  user chooses the app's language (English by default, Deutsch or Français)
-  and sets their own password (at least 10 characters, not containing the
-  user name).
-* Sessions are an httpOnly cookie (12 h, or 14 days with "Keep me signed
-  in"). Passwords are stored as scrypt hashes; sessions only as SHA-256.
-* After 5 wrong passwords an account is locked for one minute.
-* The server checks the role on every API call; hiding buttons in the UI is
-  only for convenience.
-* Logins, failed logins and all user changes are in the security log.
-
-Lost the admin password? Stop the server and run
-`node -e "require('better-sqlite3')('data/tds.db').prepare('DELETE FROM users WHERE username=?').run('admin')"`
-in `server/` only if no other admin exists. On the next start a new `admin`
-with a fresh one-time password is created when the user table is empty;
-otherwise ask another admin to reset it.
+Clearing the browser's site data deletes the products, so export what you
+want to keep. Templates, standard texts and translations are part of the code
+and are the same for everybody.
 
 ## Pages
 
-| Page | Replaces | What it does |
-| --- | --- | --- |
-| **TDS Creator** | `TDS_Creator_EN_v6.xlsm` | Pick a product and preview its TDS in the Excel layout. **Download PDF** for one product, or tick several and **Export selected as ZIP**: one separate PDF per product, named with the Excel save-name rule (`code_name_vX_EN.pdf`). |
-| **Database › Products** | `Masterdata` sheet | Search, add, copy, edit and delete products. Values come from drop-downs and dot pickers, there is a live TDS preview while editing, and each save creates a new version that needs a remark. |
-| **Database › Lookups** | `Dropdown_EN` sheet | Manage drop-down values. A value still used by a product cannot be deleted. |
-| **Database › Text blocks & rules** | Fixed text in `BasisFormular` | Edit the TDS wording (processing advice, storage …), the header rules (NPH/DFC → intended use + compliance) and the document settings. |
-| **Translations** | `Data_DE` / `Data_FR` sheets | Translate every TDS text side by side with English, approve, add languages, optional AI suggestions. |
-| **Change history** | – | Every change, with user, date, remark and the changed fields. |
-| **Dashboard** | – | Counts, recent changes and quick actions. |
-| **Admin › Users & roles** | – | Users, roles, one-time passwords, permission matrix, security log. |
-| **Account** | – | Own profile, app language and password. Theme and language are also in the user menu. |
-
-## App language (EN / DE / FR)
-
-The app's own pages (menus, buttons, messages, server errors) are available in
-English, German and French. This is separate from the TDS languages below:
-switching the app to German does not change the language of a TDS document.
-
-* Each user chooses the language at the first sign-in; it is stored with the
-  user (`users.ui_language`) and applied at every sign-in. Change it any time
-  under **Account** or in the user menu. The sign-in page has its own EN/DE/FR
-  switch and remembers the last choice in the browser.
-* The app translates itself in the browser (no browser page translation;
-  `translate="no"` stops Chrome/Edge from offering it).
-* Texts live in `client/src/app/core/i18n/de.ts` and `fr.ts`, keyed by the
-  English text: `{{ 'Sign in' | t }}`, or `i18n.t('Deleted {name}', { name })`
-  in code. A text without an entry is shown in English. Server messages are
-  English and go through the same lookup; their entries are under `matched`,
-  where `{placeholders}` also match messages with values filled in.
-* To add a text, wrap it with `| t` and add the English key to `de.ts` and
-  `fr.ts`.
-
-## How it maps to the Excel
-
-* `server/src/fields.js` lists every product field: label, type, which lookup
-  it uses and which Masterdata column it is imported from.
-* `server/src/tds.js` holds the rules that the Excel formulas used to apply:
-  `up to` before the heat resistance, the `*` footnote for foil wrapping,
-  the header → intended-use/compliance link, number formats such as `1,04 g/cm³`
-  and `{{shelf_life_months}}` in the text. One change from Excel: **empty
-  values are left out**, so the PDF has no blank rows.
-* Ratings: 10 dots per property, filled up to the score, all grey for n.a.
-  (the same as the conditional formatting in the template).
-
-## Languages and translations
-
-English is the source language; DE and FR are set up, and admins can add
-more under **Translations › Languages**.
-
-* **Everything on the TDS is translatable**: layout labels, text blocks,
-  header rules (intended use, compliance), drop-down words such as "yes" or
-  substrates, product descriptions and the series title. Numbers, units and
-  product names stay as they are.
-* **Missing translations fall back to English**, so a TDS can always be
-  produced. The TDS Creator shows how many texts are missing, outdated or still
-  to review for the chosen language.
-* **Status per text**: *Not translated* → *To review* → *Approved*. When the
-  English text changes, its translations become *Outdated* until someone
-  updates them or confirms they are still correct.
-* **Starter set**: on first start the server adds German and French
-  translations of the standard wording as *To review*. They must be checked
-  before approval; compliance and legal texts by the responsible department.
-* **AI suggestions (optional)**: start the server with `ANTHROPIC_API_KEY`
-  set to get a "Suggest" button per text and "AI: translate open" on the
-  Translations page. Suggestions use Claude (`claude-opus-5-5`, change with
-  `TDS_AI_MODEL`), follow the approved translations as a term list, keep
-  placeholders such as `{{shelf_life_months}}`, and are saved as *To review*.
-* **Export**: pick the language in the TDS Creator, or tick *All languages* to
-  get one PDF per product and language in a ZIP (`code_name_vX_DE.pdf`).
-
-## Page layout and pagination
-
-* **Two pages (default)**: page 1 holds the product data, ratings and the
-  processing, storage and general sections; page 2 starts with Product safety
-  (intended use, compliance, preservatives, legal note), as on the original
-  TDS. Each page repeats the product title, carries the company footer and
-  "Page 1 / 2". Switch to **One page** (scaled to fit) under Text & rules ›
-  Document settings.
-* **Long lists are paged**: products, users, translations and the TDS Creator
-  list in the browser; the change history and the security log on the server
-  (`?limit=&offset=`), since they grow every day.
-
-## PDF export
-
-PDFs are made on the server (`server/src/pdf.js`): the Edge or Chrome
-installed on the machine opens `/print/:id` (the same Angular component the
-creator shows) and prints it to A4. No browser is downloaded.
-
-* **One page per TDS.** If a TDS is only a little longer than one page, it is
-  scaled down to fit (not below 76 %, which also covers the longer DE/FR texts). Anything longer flows to a second page
-  instead of becoming unreadable. The creator shows which case applies.
-* `TDS_BROWSER_PATH` picks a specific browser if auto-detection fails.
-* `TDS_APP_URL` tells the server where the app runs. The default is the
-  server itself (`http://localhost:3000`), which needs `npm run build` first.
-  During `ng serve`, set it to `http://localhost:4200`.
-
-## Not in this first release (on purpose)
-
-Approval workflow for whole TDS (draft → review → published), single sign-on,
-phrase library, bulk changes, publishing to the portals and reading data from SAP.
-The data model and API are built so these can be added later.
-
-
-## Deploy on Render (free)
-
-The repository has a `Dockerfile` (Angular build + API + Chromium for the PDF
-export) and a `render.yaml` Blueprint for one free web service, nothing else.
-
-1. Push this folder to a GitHub repository. It contains no product data.
-2. In Render: **New › Blueprint**, pick the repository, confirm. This creates
-   the free web service `tds-platform`.
-3. Open the service's **Environment** tab and copy `TDS_ADMIN_PASSWORD`.
-   Sign in as `admin` with it, choose the language and set your own password.
-
-**Free plan limits.** There is no disk, so the database lives inside the
-container: on every deploy, and every time the service wakes up after about
-15 minutes without visitors, the app starts fresh with the test products, and
-changes and new users are gone. `admin` then has `TDS_ADMIN_PASSWORD` again.
-The first visit after a sleep takes about a minute. With 512 MB of memory,
-PDFs are made one at a time (`TDS_PDF_CONCURRENCY=1`).
-
-For data that must survive, use a paid instance type with a disk mounted at
-e.g. `/var/data` and set `TDS_DB_PATH=/var/data/tds.db`.
-
-| Variable | Purpose |
+| Page | What it does |
 | --- | --- |
-| `TDS_TRUST_PROXY` | `1` behind Render's proxy, so session cookies are secure |
-| `TDS_ADMIN_PASSWORD` | First password of `admin` in a new database (generated by Render) |
-| `TDS_PDF_CONCURRENCY` | PDFs rendered at once (default 3) |
-| `TDS_DB_PATH` | Optional: database file, e.g. on a persistent disk |
-| `TDS_EXCEL_PATH` | Optional: Excel imported into an empty database instead of the test products |
-| `TDS_BROWSER_PATH`, `TDS_BROWSER_ARGS` | Chromium for the PDF export (set in the Dockerfile) |
-| `ANTHROPIC_API_KEY` | Optional: AI translation suggestions |
+| **Data sheets** | Products grouped by template. The selected one is shown as A4 pages; switch EN / DE / FR, zoom, **Edit**, **Print / PDF**. Tick several products to print them in one go |
+| **Edit / New data sheet** | The form follows the template. Live preview beside it. **Translations** tab for the product's own texts in DE and FR. Every save raises the version |
+| **Templates** | Read-only list of the templates, their sections and the fields each one asks for |
 
-## API (short)
+**PDF:** Print / PDF opens the browser's print dialog; choose *Save as PDF*.
+The file name is suggested as `code_name_vX_EN`. Each sheet is exactly A4, and
+the margins come from the layout, so set *Margins: none* only if your browser
+adds its own.
+
+## How a TDS is made
 
 ```
-POST   /api/auth/login {username, password, remember}   POST /api/auth/logout
-GET    /api/auth/me                       POST /api/auth/password {current, password, ui_language?}
-PUT    /api/auth/preferences {ui_language: en|de|fr}   GET /api/health
-GET|POST /api/users   PUT|DELETE /api/users/:id   POST /api/users/:id/reset-password   GET /api/audit   (admin)
-GET    /api/languages   POST /api/languages   PUT|DELETE /api/languages/:code   (admin)
-GET    /api/translations?lang=DE   PUT /api/translations   POST /api/translations/approve-all
-GET    /api/translations/summary   GET /api/translations/ai   POST /api/translations/suggest
-GET    /api/products?search=&header=      GET  /api/tds/:id        (render-ready TDS)
-GET    /api/products/:id                  GET  /api/tds/:id/pdf?lang=DE    (one PDF)
-                                          GET  /api/tds/export.zip?ids=1,2&langs=EN,DE  (ZIP, one PDF per product and language)
-POST   /api/products        {…, remark}   POST /api/tds/preview    (unsaved draft)
-PUT    /api/products/:id    {…, remark}   GET  /api/history?limit=
-DELETE /api/products/:id?remark=          GET  /api/products/:id/history
-GET|POST /api/lookups   DELETE /api/lookups/:id
-GET|POST /api/headers   PUT    /api/headers/:code
-GET    /api/text-blocks PUT    /api/text-blocks/:key
-GET|PUT /api/settings   GET    /api/stats   GET /api/meta
+src/app/tds/fields.ts        field catalog + drop-down values
+src/app/tds/templates/*.ts   one file per template: sections → blocks
+src/app/tds/phrases.ts       standard texts the templates print
+src/app/tds/translations.ts  DE / FR wording, matched by the English text
+        │
+        ▼
+src/app/tds/generator.ts     product + template → document (fills values, picks texts,
+        │                    translates, drops empty parts)
+        ▼
+src/app/document/            lays the document out on A4 pages (preview = print)
 ```
+
+Blocks without content and sections without blocks are left out, so a TDS
+never has empty rows or sections, and section numbers close up.
+
+## Adding or changing a template
+
+Templates are written by hand. There is no template editor in the site.
+
+1. Copy the closest template in `src/app/tds/templates/` (for example
+   `narrow-web.ts` to `narrow-web-ledtec.ts`). Rename the constant and give
+   it a new, unique `code`. Products store the code, so do not change the code
+   of a template that products already use.
+2. Set `name`, `businessUnit`, `description`, the layout `style`
+   (`'narrow-web'` or `'sheetfed'`), `docTitle` and the `footer`.
+3. Edit `sections`. Each section has a `title` and `blocks`:
+
+   | Block `type` | Prints |
+   | --- | --- |
+   | `text` | a phrase (`phrase: 'doubt'`) or its own `text` |
+   | `field` | one product field; `inline: true` prints "Label: value" |
+   | `facts` | several values in rows, or side by side with `layout: 'columns'` |
+   | `table` | a table field (anilox rollers, product list) |
+   | `choice` | a text picked by a field's value, e.g. the safety text by `intended_use` |
+   | `ratings` | 1–10 dot scales |
+   | `group` | a `heading`, printed only when a block inside has content |
+   | `columns` | blocks side by side |
+
+   Any section or block can have `when`, e.g.
+   `when: { field: 'product_type', op: 'in', value: ['Ink', 'Ink series'] }`.
+   Operators: `eq`, `ne`, `in`, `notIn`, `empty`, `notEmpty`, `yes`, `no`.
+4. Add the template to `TEMPLATES` in `src/app/tds/templates/index.ts`.
+5. Run `npm start`. The product form now offers the template and shows the
+   fields it uses. A mistake such as an unknown field, an unknown phrase or a
+   duplicate block id is shown in a red bar at the top of the site.
+
+Shared sections (product safety, properties, shelf life, product list) are in
+`shared-sections.ts`. A change there affects every template that uses them.
+
+**New field:** add it to `FIELDS` in `fields.ts` (and its drop-down values to
+`LOOKUPS` if it is a `select`), then use it in a template.
+
+**New standard text:** add it to `PHRASES` in `phrases.ts` and refer to it by
+its key.
+
+Texts use a small markup: a line starting with `- ` is a bullet, `## ` is a
+sub-heading, `**bold**` is bold; URLs become links; `{{shelf_life_months}}` (or
+any field key) is replaced with the product's value.
+
+## Translations
+
+English is the source. `translations.ts` holds the German and French wording
+of the standard texts, headings, labels and drop-down values, **matched by the
+exact English text**. When you change an English phrase or heading, update its
+entry there too, or the TDS prints that text in English. The Data sheets page
+says how many texts on a sheet have no translation.
+
+A product's own texts (description, properties …) are translated per product
+under **Edit › Translations**. Compliance and legal texts must be checked by
+the responsible department.
+
+## Changes from v0.2
+
+v0.2 had a Node.js / SQLite server. It is gone, and with it everything that
+needed it: sign-in, users and roles, regions and business-unit access, the
+change history, server-side PDF and ZIP export, the Excel import, the
+translation workflow and AI suggestions, the template designer, and the app
+language switch (the site itself is in English; data sheets are EN / DE / FR).
+The templates, phrase library, translations, field catalog, sample data and
+the A4 page layout carried over unchanged.
